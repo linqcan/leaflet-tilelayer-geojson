@@ -2,6 +2,13 @@
 L.TileLayer.Ajax = L.TileLayer.extend({
     _requests: [],
     _data: [],
+    _currentTileUrl: '',
+    _index: 0,
+    initialize: function(url, options) {
+    	//Unsafe, what happens if layers randomly get the same index?
+    	this._index = Math.floor((Math.random()*100)+1);
+        L.TileLayer.prototype.initialize.call(this, url, options);
+    },
     data: function () {
         for (var t in this._tiles) {
             var tile = this._tiles[t];
@@ -18,7 +25,8 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         this._loadTile(tile, tilePoint);
     },
     // XMLHttpRequest handler; closure over the XHR object, the layer, and the tile
-    _xhrHandler: function (req, layer, tile) {
+    _xhrHandler: function (req, layer, tile, url) {
+    	var key = this._parseKey(url);
         return function() {
             if (req.readyState != 4) {
                 return;
@@ -26,21 +34,29 @@ L.TileLayer.Ajax = L.TileLayer.extend({
             var s = req.status;
             if ((s >= 200 && s < 300) || s == 304) {
                 tile.datum = JSON.parse(req.responseText);
-                layer._tileLoaded();
-            } else {
-                layer._tileLoaded();
+            	if (url) {
+                    Ti.App.fireEvent('app:writeTileToCache', { url: url, data: tile.datum, key: key });
+                    localStorage[key] = req.responseText;
+               } else {
+                    layer._tileLoaded();
+               }
             }
-        }
+            layer._tileLoaded();
+        };
     },
     // Load the requested tile via AJAX
     _loadTile: function (tile, tilePoint) {
         this._adjustTilePoint(tilePoint);
-        var layer = this;
-        var req = new XMLHttpRequest();
-        this._requests.push(req);
-        req.onreadystatechange = this._xhrHandler(req, layer, tile);
-        req.open('GET', this.getTileUrl(tilePoint), true);
-        req.send();
+        this._currentTileUrl = this.getTileUrl(tilePoint);
+        var key = this._parseKey(this._currentTileUrl);
+        if (localStorage[key]) {
+            //Tile is in localStorage, get it!
+            tile.datum = JSON.parse(localStorage[key]);
+            this._tileLoaded();
+        } else{
+            //Get tile from database, or via HTTP
+            Ti.App.fireEvent('app:readTileFromCache', { index: this._index, x: tilePoint.x, y: tilePoint.y, url: this._currentTileUrl, key: key });
+        }
     },
     _resetCallback: function() {
         this._data = [];
@@ -54,6 +70,51 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         if (this._map._panTransition && this._map._panTransition._inProgress) { return; }
         if (this._tilesToLoad < 0) this._tilesToLoad = 0;
         L.TileLayer.prototype._update.apply(this, arguments);
+    },
+    _tileCallback: function (response) {
+    	if (this._tilesToLoad < 0) {
+    		return;
+    	}
+    	var tile = this._tiles[response.x + ':' + response.y];
+    	if (!tile) {
+            Ti.API.error('Tile is undefined for x=' + response.x + ' y=' + response.y );
+            return;
+    	}
+        if (response.data) {
+            //Tile exists in database
+            localStorage[response.key] = JSON.stringify(response.data);
+            tile.datum = response.data;
+            this._tileLoaded();
+        } else {
+            //Tile doesn't exist in database, get via HTTP
+            var req = new XMLHttpRequest();
+            this._requests.push(req);
+            req.onreadystatechange = this._xhrHandler(req, this, tile, response.url).bind(this);
+            req.open('GET', response.url, true);
+            req.send();
+        }
+    },
+    onAdd: function (map) {
+    	Ti.App.addEventListener('app:returnTileFromCache' + this._index, this._tileCallback.bind(this));
+        L.TileLayer.prototype.onAdd.call(this, map);
+    },
+    onRemove: function(map) {
+    	Ti.App.removeEventListener('app:returnTileFromCache' + this._index, this._tileCallback.bind(this));
+        L.TileLayer.prototype.onRemove.call(this, map);
+    },
+    _parseKey: function(tileUrl) {
+    	if (!tileUrl) {
+            return null;
+    	}
+    	// Assumes a TileStache server with url: 
+        // http://myhost/tiles/tiles.py/layer/z/x/y.geojson
+        var patt1 = new RegExp(".*tiles.py/(.*)");
+        var result = patt1.exec(tileUrl);
+        if (result[1]) {
+            return result[1];
+        } else {
+            return tileUrl;
+        }
     }
 });
 
@@ -66,8 +127,8 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
     },
     onAdd: function (map) {
         this._map = map;
-        L.TileLayer.Ajax.prototype.onAdd.call(this, map);
         this.on('load', this._tilesLoaded);
+        L.TileLayer.Ajax.prototype.onAdd.call(this, map);
         map.addLayer(this.geojsonLayer);
     },
     onRemove: function (map) {
