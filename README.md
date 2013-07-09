@@ -1,5 +1,32 @@
-# Leaflet GeoJSON Tile Layer
-Renders GeoJSON tiles on an L.GeoJSON layer
+# Leaflet GeoJSON Tile Layer 
+..with caching for Titanium
+
+Renders GeoJSON tiles on an L.GeoJSON layer and caches to localStorage and a sqlite3 database.
+
+## Regarding caching
+This branch uses localStorage caching as the [localCaching](https://github.com/linqcan/leaflet-tilelayer-geojson/tree/localCaching) branch, but it also adds extra fall back in a database cache.
+
+The procedure works like this;
+* Check if tile is in localStorage. If so; use it.
+* If not in localStorage, check if it is in the database. If so; use it and store in localStorage.
+* If not in the database, fetch from server.
+* Store tile from server in the database and localStorage, then use it.
+
+The database fallback reduces the need for a network connection and makes sure the tile data survives through the application's lifecycle.
+However, database calls introduces some overhead and loading tiles from database versus localStorage will be a bit slower.
+
+## Regarding Titanium
+The controller needed to run this version of TileLayer.GeoJSON is included in index.js. Include this code wherever/however you find suitable.
+
+The simplest Titanium application would include index.js as a controller and a view index.xml looking like this:
+
+    <Alloy>
+      <Window class="container">
+        <WebView id="webView" url="/leaflet.html" touchEnabled="true"/>
+      </Window>
+    </Alloy>
+
+Where "leaflet.html" is your Leaflet application and is stored under /assets.
 
 ## Example usage
 The following example shows a GeoJSON Tile Layer for tiles with duplicate features.
