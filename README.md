@@ -1,5 +1,16 @@
-# Leaflet GeoJSON Tile Layer
-Renders GeoJSON tiles on an L.GeoJSON layer
+# Leaflet GeoJSON Tile Layer witch caching
+Renders GeoJSON tiles on an L.GeoJSON layer and caches tiles in localStorage.
+
+## Regarding caching
+Caching is done using localStorage, which is basically a key-value storage.
+The cache is regarded as valid "forever", so if you have changing data (changing more often than the browser session) you might want to clear localStorage from time to time; localStorage.clear()
+More about localStorage persistence can be found [here](http://stackoverflow.com/questions/9948284/how-persistent-is-localstorage)
+
+The key is determined by the parseKey function and it is currently assuming a TileStache server. You made need to tweak the regular expression pattern to fit your needs.
+For example, if you are using [OpenStreetMap GeoJSON](http://openstreetmap.us/~migurski/vector-datasource/) data you migt want to change the matching pattern to:
+<pre>
+.*openstreetmap.us/(.*)
+</pre>
 
 ## Example usage
 The following example shows a GeoJSON Tile Layer for tiles with duplicate features.
