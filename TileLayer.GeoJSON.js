@@ -70,12 +70,14 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         L.TileLayer.prototype._update.apply(this, arguments);
     },
     _parseKey: function (tileUrl) {
+        // Assumes a TileStache server with url: 
+        // http://myhost/tiles/tiles.py/layer/z/x/y.geojson
         var patt1 = new RegExp(".*tiles.py/(.*)");
         var result = patt1.exec(tileUrl);
         if (result && result[1]) {
             return result[1];
         } else {
-            return null;
+            return tileUrl;
         }
     }
 });
