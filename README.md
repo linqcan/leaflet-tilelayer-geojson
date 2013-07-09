@@ -1,9 +1,9 @@
-# Leaflet GeoJSON Tile Layer witch caching
+# Leaflet GeoJSON Tile Layer with caching
 Renders GeoJSON tiles on an L.GeoJSON layer and caches tiles in localStorage.
 
 ## Regarding caching
 Caching is done using localStorage, which is basically a key-value storage.
-The cache is regarded as valid "forever", so if you have changing data (changing more often than the browser session) you might want to clear localStorage from time to time; localStorage.clear()
+The cache is regarded as valid "forever", so if you have changing data (changing more often than the cache is cleared) you might want to clear localStorage from time to time; localStorage.clear()
 More about localStorage persistence can be found [here](http://stackoverflow.com/questions/9948284/how-persistent-is-localstorage)
 
 The key is determined by the parseKey function and it is currently assuming a TileStache server. You made need to tweak the regular expression pattern to fit your needs.
