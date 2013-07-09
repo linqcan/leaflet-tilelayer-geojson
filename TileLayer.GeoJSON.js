@@ -20,7 +20,7 @@ L.TileLayer.Ajax = L.TileLayer.extend({
     },
     // XMLHttpRequest handler; closure over the XHR object, the layer, and the tile
     _xhrHandler: function (req, layer, tile) {
-    		var currentTileUrl = this._currentTileUrl;
+        var key = this._parseKey(this._currentTileUrl);
         return function() {
             if (req.readyState != 4) {
                 return;
@@ -28,8 +28,8 @@ L.TileLayer.Ajax = L.TileLayer.extend({
             var s = req.status;
             if ((s >= 200 && s < 300) || s == 304) {
                 tile.datum = JSON.parse(req.responseText);
-            		if (!localStorage[currentTileUrl] && currentTileUrl) {
-									localStorage[currentTileUrl] = req.responseText;
+                if (key && !localStorage[key]) {
+                    localStorage[key] = req.responseText;
                 }
             }
             layer._tileLoaded();
@@ -40,19 +40,20 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         this._adjustTilePoint(tilePoint);
         var layer = this;
         this._currentTileUrl = this.getTileUrl(tilePoint);
-        if (localStorage[this._currentTileUrl]) {
-        	//Tile exists in localStorage, use it!
-        	console.log('Loading tile from cache'); //TODO Remove when devlopment is done!
-        	tile.datum = JSON.parse(localStorage[this._currentTileUrl]);
-        	layer._tileLoaded();
+        var key = this._parseKey(this._currentTileUrl);
+        if (localStorage[key]) {
+            //Tile exists in localStorage, use it!
+            console.log('Loading tile from cache'); //TODO Remove when devlopment is done!
+            tile.datum = JSON.parse(localStorage[key]);
+            layer._tileLoaded();
         } else {
-        	// No tile in localStorage, get it via AJAX
-        	console.log('Loading tile from server'); //TODO Remove when devlopment is done!
-	        var req = new XMLHttpRequest();
-		      this._requests.push(req);
-		      req.onreadystatechange = this._xhrHandler(req, layer, tile);
-		      req.open('GET', this._currentTileUrl, true);
-		      req.send();
+            // No tile in localStorage, get it via AJAX
+            console.log('Loading tile from server'); //TODO Remove when devlopment is done!
+            var req = new XMLHttpRequest();
+            this._requests.push(req);
+            req.onreadystatechange = this._xhrHandler(req, layer, tile);
+            req.open('GET', this._currentTileUrl, true);
+            req.send();
         }
     },
     _resetCallback: function() {
@@ -67,6 +68,15 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         if (this._map._panTransition && this._map._panTransition._inProgress) { return; }
         if (this._tilesToLoad < 0) this._tilesToLoad = 0;
         L.TileLayer.prototype._update.apply(this, arguments);
+    },
+    _parseKey: function (tileUrl) {
+        var patt1 = new RegExp(".*tiles.py/(.*)");
+        var result = patt1.exec(tileUrl);
+        if (result && result[1]) {
+            return result[1];
+        } else {
+            return null;
+        }
     }
 });
 
